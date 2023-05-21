@@ -136,7 +136,7 @@ if __name__=='__main__':
     if upload is not None and st.button("Predict"):
         im = Image.open(upload)
         img = np.asarray(im)
-        img = image_resize(img, height = 720)
+        im = image_resize(img, height = 720)
         img = np.expand_dims(img, 0)
         c1.header('Input Image')
         c1.image(im)
@@ -145,7 +145,7 @@ if __name__=='__main__':
         processor = CLIPProcessor.from_pretrained(BASELINE_MODEL)
         
         preds = predict_one_image(
-                img, model, processor, class_names, max(K_VALUES), class_col)
+                im, model, processor, class_names, max(K_VALUES), class_col)
         st.markdown('The model predicted:',unsafe_allow_html=True)
         df = pd.DataFrame(preds, columns=['pred', 'probability'])
         st.table(df)
