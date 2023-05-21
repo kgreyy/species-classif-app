@@ -21,19 +21,17 @@ def get_base64_of_bin_file(bin_file):
         data = f.read()
     return base64.b64encode(data).decode()
 
-def set_png_as_page_bg(png_file):
-    bin_str = get_base64_of_bin_file(png_file) 
+def set_page_bg():
     page_bg_img = '''
     <style>
     .stApp {
-    background-color: black;
-    /*background-image: url("data:image/png;base64,%s");*/
+    background-color: white;
     background-size: cover;
     background-repeat: no-repeat;
     background-attachment: scroll; # doesn't work
     }
     </style>
-    ''' % bin_str
+    '''
     
     st.markdown(page_bg_img, unsafe_allow_html=True)
     return
@@ -98,23 +96,44 @@ if __name__=='__main__':
     os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"]=".XX"
     os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"]="platform"
 
-    set_png_as_page_bg('white-concrete-wall.jpg')
+    set_page_bg()
     df_categs = pd.read_csv("data/test_hierarchy_reference.csv")
 
-    st.markdown('<h1 style="color:white;">CLIP Taxon Classification model</h1>', unsafe_allow_html=True)
-    st.markdown('<h2 style="color:gray;">The image classification model classifies images according to:</h2>', unsafe_allow_html=True)
-    st.markdown('<h3 style="color:gray;">'+', '.join(df_categs.columns)+'</h3>', unsafe_allow_html=True)
+    st.markdown('# CLIP Taxon Classification model')
+    st.markdown('## The image classification model classifies images according to:')
+    st.markdown('### '+', '.join(df_categs.columns))
 
-    
+    model_map = {"openai/clip-vit-base-patch32": 'baseline'}
+    model_name = st.selectbox('Select what model to use', ["openai/clip-vit-base-patch32", 'model12/',
+                                                           'model18/', 'model20/', 'model27/'],
+                              0, format_func=lambda x: model_map.get(x, x[:-1]))
 
     class_col = st.selectbox('Select what to classify on', df_categs.columns, len(df_categs.columns)-1)
-    st.markdown('<h3 style="color:gray;">You have selected ' + class_col +'.</h3>', unsafe_allow_html=True)
-    st.markdown('<h3 style="color:gray;">There are '+str(len(df_categs[class_col].unique()))+' classes of taxonomic classification: '+class_col+'.</h3>', unsafe_allow_html=True)
+    st.markdown('### You have selected ' + class_col)
+
+    phylum_hint = st.selectbox('Hint a phylum where the species is under', ['.+']+sorted(list(df_categs['phylum'].dropna().unique())),
+                               0, format_func=lambda x: {'.+':'No hint'}.get(x, x))
+    
+    filtered_df = df_categs.loc[df_categs['phylum'].str.match(phylum_hint, na=False)]
+
+    class_hint = st.selectbox('Hint a class where the species is under', ['.+']+sorted(list(filtered_df['class'].dropna().unique())),
+                               0, format_func=lambda x: {'.+':'No hint'}.get(x, x))
+    
+    filtered_df = filtered_df.loc[filtered_df['class'].str.match(class_hint, na=False)]
+    
+    family_hint = st.selectbox('Hint a family where the species is under', ['.+']+sorted(list(filtered_df['family'].dropna().unique())),
+                               0, format_func=lambda x: {'.+':'No hint'}.get(x, x))
+
+    class_names = filtered_df.loc[filtered_df['family'].str.match(family_hint, na=False), class_col].dropna().unique()
+    
+    st.markdown('### There are '+str(len(class_names))+' classes of taxonomic classification: '+class_col)
 
     # Image upload
     upload= st.file_uploader('Insert image for classification', type=['png','jpg'])
     c1, c2= st.columns(2)
-    if upload is not None:
+
+    
+    if upload is not None and st.button("Predict"):
         im = Image.open(upload)
         img = np.asarray(im)
         img = image_resize(img, height = 720)
@@ -122,11 +141,11 @@ if __name__=='__main__':
         c1.header('Input Image')
         c1.image(im)
         c1.write(img.shape)
-        model = FlaxCLIPModel.from_pretrained(BASELINE_MODEL)
+        model = FlaxCLIPModel.from_pretrained(model_name)
         processor = CLIPProcessor.from_pretrained(BASELINE_MODEL)
-        class_names = df_categs[class_col].dropna().unique()
+        
         preds = predict_one_image(
                 img, model, processor, class_names, max(K_VALUES), class_col)
-        st.markdown('<h3 style="color:white;"> The model predicted: </h3>',unsafe_allow_html=True)
+        st.markdown('The model predicted:',unsafe_allow_html=True)
         df = pd.DataFrame(preds, columns=['pred', 'probability'])
         st.table(df)
