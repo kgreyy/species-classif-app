@@ -105,7 +105,7 @@ if __name__=='__main__':
 
     model_map = {"openai/clip-vit-base-patch32": 'baseline'}
     model_name = st.selectbox('Select what model to use', ["openai/clip-vit-base-patch32", 'model12/',
-                                                           'model18/', 'model20/', 'model27/'],
+                                                           'model18/', 'model20/', 'model26/', 'model27/', 'model29/'],
                               0, format_func=lambda x: model_map.get(x, x[:-1]))
 
     class_col = st.selectbox('Select what to classify on', df_categs.columns, len(df_categs.columns)-1)
